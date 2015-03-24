@@ -64,4 +64,52 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Send value"/>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Light sensor value: "/>
+
+        <TextView
+            android:id="@+id/lightSensorValueTextField"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="unavailable"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Proximity sensor value: "/>
+
+        <TextView
+            android:id="@+id/proximitySensorValueTextField"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="unavailable"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Decibels: "/>
+
+        <TextView
+            android:id="@+id/decibelValueTextField"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="unavailable"/>
+    </LinearLayout>
 </LinearLayout>
