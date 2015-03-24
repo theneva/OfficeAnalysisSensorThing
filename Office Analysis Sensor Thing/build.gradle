@@ -23,7 +23,6 @@ dependencies {
     compile "org.androidannotations:androidannotations-api:$AAVersion"
 
     compile "org.springframework.android:spring-android-rest-template:1.0.1.RELEASE"
-    compile 'com.google.code.gson:gson:2.3.1'
 
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.android.support:appcompat-v7:21.0.3'

@@ -12,14 +12,13 @@ import android.widget.EditText;
 import android.widget.TextView;
 import org.androidannotations.annotations.*;
 import org.androidannotations.annotations.rest.RestService;
+import org.springframework.util.LinkedMultiValueMap;
 
-import java.util.Arrays;
-import java.util.Date;
-
-@EActivity(R.layout.activity_temperature)
-public class TemperatureActivity extends Activity implements SensorEventListener
+@EActivity(R.layout.activity_sensor)
+public class SensorActivity extends Activity implements SensorEventListener
 {
-    private final String TAG = TemperatureActivity.class.getSimpleName();
+    private final String TAG = SensorActivity.class.getSimpleName();
+
     @ViewById
     EditText serverIpEditText;
 
@@ -38,19 +37,23 @@ public class TemperatureActivity extends Activity implements SensorEventListener
     @ViewById
     TextView decibelValueTextField;
 
-    private boolean getDecibels = false;
+    @Bean
+    DefaultRestErrorHandler defaultRestErrorHandler;
 
     @RestService
-    TemperatureClient temperatureClient;
+    LightClient lightClient;
+
+    private final static int lightSendoffIntervalMilliseconds = 5000;
+
+    private long nextLightSendoffMilliseconds = 0; // immediately
+
+    private boolean spamLight = false;
 
     SensorManager sensorManager;
 
     Sensor lightSensor;
 
     Sensor proximitySensor;
-
-    @Bean
-    SoundMeter soundMeter;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState)
@@ -70,7 +73,8 @@ public class TemperatureActivity extends Activity implements SensorEventListener
         sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
         sensorManager.registerListener(this, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
 
-        configureSoundMeter();
+        spamLight = true;
+        spamLight();
     }
 
     @Override
@@ -79,81 +83,87 @@ public class TemperatureActivity extends Activity implements SensorEventListener
         super.onPause();
 
         sensorManager.unregisterListener(this);
-        getDecibels = false;
-        soundMeter.stop();
+
+        spamLight = false;
     }
 
     @AfterInject
-    void configureSoundMeter()
+    void configureErrorHandlers()
     {
-        if (soundMeter != null)
-        {
-            getDecibels = true;
-            soundMeter.start();
-            getDecibelsForever();
-        }
+        lightClient.setRestErrorHandler(defaultRestErrorHandler);
     }
 
     @Background
-    void getDecibelsForever()
+    void spamLight()
     {
         for (; ; )
         {
-            if (!getDecibels)
+            if (!spamLight)
             {
                 break;
             }
 
-            displayDecibels(soundMeter.getDecibels());
+            final long currentTimeMillis = System.currentTimeMillis();
+            if (currentTimeMillis < nextLightSendoffMilliseconds)
+            {
+                return;
+            }
+
+            nextLightSendoffMilliseconds = currentTimeMillis + lightSendoffIntervalMilliseconds;
+            prepareLightSendoff();
 
             try
             {
-                Thread.sleep(100);
+                Thread.sleep(lightSendoffIntervalMilliseconds);
             }
             catch (InterruptedException e)
             {
-                Log.e(TAG, "Could not put decibels thread to sleep", e);
+                Log.e(TAG, "spamLight: could not sleep", e);
             }
         }
+
     }
 
-    @UiThread
-    void displayDecibels(final double decibels)
+    @Click(R.id.sendLightButton)
+    void prepareLightSendoff()
     {
-        decibelValueTextField.setText(String.valueOf(decibels));
-    }
+        if (lightSensorValueTextField == null
+                || integrationIdEditText == null)
+        {
+            Log.d(TAG, "A text field was null");
+            return;
+        }
 
-    @Click(R.id.sendTemperatureButton)
-    void prepareTemperatureSendoff()
-    {
         final String rootUrl = serverIpEditText.getText().toString();
-        temperatureClient.setRootUrl(rootUrl);
+        lightClient.setRootUrl(rootUrl);
 
+        final String lightString = lightSensorValueTextField.getText().toString();
         final String integrationId = integrationIdEditText.getText().toString();
 
-        final String temperatureString = temperatureEditText.getText().toString();
-        final String timestamp = String.valueOf(new Date());
+        final Light light = new Light(lightString, integrationId);
 
-        final Temperature temperature = new Temperature(temperatureString, timestamp);
+        Log.d(TAG, "Prepared light sendoff. rootUrl = " + rootUrl + ", integrationId = " + integrationId + ", light = " + light);
 
-        Log.d(TAG, "Prepared temperature sendoff. rootUrl = " + rootUrl + ", integrationId = " + integrationId + ", temperature = " + temperature);
-
-        sendTemperature(temperature, integrationId);
+        sendLight(light);
     }
 
     @Background
-    void sendTemperature(Temperature temperature, String integrationId)
+    @Trace
+    void sendLight(Light light)
     {
-        Log.d(TAG, "Sent temperature: " + temperature + " from integration id: " + integrationId);
-        String response = temperatureClient.send(temperature, integrationId);
+        final LinkedMultiValueMap<String, String> lightMultiValueMap = new LinkedMultiValueMap<>();
+
+        lightMultiValueMap.add("value", light.getValue());
+        lightMultiValueMap.add("integrationId", light.getIntegrationId());
+
+        String response = lightClient.send(lightMultiValueMap);
+
         Log.d(TAG, "Got response: " + response);
     }
 
     @Override
     public void onSensorChanged(final SensorEvent sensorEvent)
     {
-        Log.d(TAG, "onSensorChanged: " + Arrays.toString(sensorEvent.values));
-
         if (sensorEvent.sensor == lightSensor)
         {
             lightSensorValueTextField.setText(String.valueOf(sensorEvent.values[0]));
